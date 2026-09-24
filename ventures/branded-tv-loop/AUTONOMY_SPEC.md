@@ -29,8 +29,8 @@ Repeated webhook deliveries do not create duplicate orders.
 Safe auto-delivery requires all of:
 - payment status is paid;
 - supplied asset-rights attestation is true;
-- audio mode is `silent` or `original`;
-- no external commercial song is supplied;
+- audio mode is `silent`;
+- venue audio/music is handled separately unless a future rights-reviewed workflow is approved;
 - render completes successfully;
 - FFprobe checks pass;
 - no human-review flag exists;
