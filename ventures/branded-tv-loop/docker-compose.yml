@@ -1,0 +1,12 @@
+services:
+  branded-tv-loop:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - tvloop_data:/data
+
+volumes:
+  tvloop_data:
