@@ -15,7 +15,7 @@ After the first real payment:
 5. Point Stripe `checkout.session.completed` webhook to `/webhooks/stripe`.
 6. Configure transactional email.
 7. Set founder email.
-8. Keep `AUTO_DELIVER_SAFE=true` only for silent/original-audio orders.
+8. Keep `AUTO_DELIVER_SAFE=true` only for silent-video orders; venue music remains separate until rights are explicitly handled.
 9. Test with one controlled live purchase.
 10. Verify exactly-once order creation, intake, render, QA, delivery, and idempotency.
 
