@@ -48,7 +48,7 @@ docker compose up --build
 Open:
 - Health: `http://localhost:8000/health`
 - Intake: generated after a Stripe checkout event
-- Admin: `/admin/orders?token=<ADMIN_TOKEN>`
+- Admin: `/admin/orders` with `X-Admin-Token: <ADMIN_TOKEN>` header
 
 ## Production target
 
