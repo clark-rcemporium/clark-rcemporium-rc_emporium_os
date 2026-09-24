@@ -27,7 +27,8 @@ def startup():
 def health():
     return {"ok": True, "service": "rc-branded-tv-loop-autonomy"}
 
-def require_admin(token: str):
+def require_admin(request: Request):
+    token = request.headers.get("x-admin-token", "")
     if not ADMIN_TOKEN or token != ADMIN_TOKEN:
         raise HTTPException(403, "Forbidden")
 
@@ -70,7 +71,9 @@ async def stripe_webhook(request: Request):
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         payment_link = session.get("payment_link")
-        if EXPECTED_PAYMENT_LINK_ID and payment_link and payment_link != EXPECTED_PAYMENT_LINK_ID:
+        if EXPECTED_PAYMENT_LINK_ID and payment_link != EXPECTED_PAYMENT_LINK_ID:
+            with conn() as c:
+                c.execute("INSERT OR IGNORE INTO processed_stripe_events(event_id,processed_at) VALUES(?,?)", (event_id, now_iso()))
             return {"ok": True, "ignored": True}
         if session.get("payment_status") == "paid":
             await create_order_from_session(session)
@@ -92,7 +95,7 @@ def intake_form(token: str):
       <label>Social handles</label><br><input name='social_handles' style='width:100%'><br><br>
       <label>Events / announcements</label><br><textarea name='events_text' rows='4' style='width:100%'></textarea><br><br>
       <label>Style</label><br><select name='style'><option>modern</option><option>upscale</option><option>casual</option><option>energetic</option></select><br><br>
-      <label>Audio</label><br><select name='audio_mode'><option value='silent'>Silent</option><option value='original'>Original RC ambient audio</option></select><br><br>
+      <label>Audio</label><br><select name='audio_mode'><option value='silent'>Silent video — venue audio handled separately</option></select><br><br>
       <label>Logo (PNG/JPG)</label><br><input type='file' name='logo' accept='image/png,image/jpeg'><br><br>
       <label><input type='checkbox' name='rights_attested' value='yes' required> I own or have permission to use all supplied content.</label><br><br>
       <label>Notes</label><br><textarea name='notes' rows='4' style='width:100%'></textarea><br><br>
@@ -116,7 +119,7 @@ async def intake_submit(token: str, background_tasks: BackgroundTasks,
         logo_path = order_dir / f"logo{ext}"; logo_path.write_bytes(await logo.read())
     promotions_list = [x.strip() for x in promotions.splitlines() if x.strip()][:5]
     attested = rights_attested == "yes"
-    human_review = 0 if attested and audio_mode in ("silent", "original") else 1
+    human_review = 0 if attested and audio_mode == "silent" else 1
     with conn() as c:
         c.execute("""INSERT INTO intake(order_id,public_name,brand_colors,promotions_json,social_handles,events_text,style,logo_path,notes)
         VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(order_id) DO UPDATE SET public_name=excluded.public_name,brand_colors=excluded.brand_colors,
@@ -133,7 +136,7 @@ async def process_order(order_id: int):
     order = get_order(order_id)
     with conn() as c: intake = c.execute("SELECT * FROM intake WHERE order_id=?", (order_id,)).fetchone()
     if not order or not intake: set_state(order_id, "FAILED"); return
-    if not order["rights_attested"] or order["audio_mode"] not in ("silent", "original"):
+    if not order["rights_attested"] or order["audio_mode"] != "silent":
         set_state(order_id, "HUMAN_REVIEW", human_review=1); return
     attempts = order["render_attempts"] or 0
     if attempts >= MAX_RENDER_RETRIES: set_state(order_id, "FAILED", human_review=1); return
@@ -172,12 +175,12 @@ def download(token: str):
     return FileResponse(path, media_type="video/mp4", filename="RC-Branded-TV-Loop.mp4")
 
 @app.get("/admin/orders")
-def admin_orders(token: str):
-    require_admin(token); return [dict(r) for r in list_orders()]
+def admin_orders(request: Request):
+    require_admin(request); return [dict(r) for r in list_orders()]
 
 @app.post("/admin/orders/{order_id}/approve")
-async def admin_approve(order_id: int, token: str):
-    require_admin(token); order = get_order(order_id)
+async def admin_approve(order_id: int, request: Request):
+    require_admin(request); order = get_order(order_id)
     if not order: raise HTTPException(404)
     with conn() as c: c.execute("UPDATE orders SET human_review=0 WHERE id=?", (order_id,))
     if order["state"] == "HUMAN_REVIEW" and order["output_path"] and Path(order["output_path"]).exists():
@@ -185,8 +188,8 @@ async def admin_approve(order_id: int, token: str):
     return {"ok": True, "delivered": False}
 
 @app.post("/cron/followups")
-async def cron_followups(token: str):
-    require_admin(token); now = datetime.now(timezone.utc); changed = 0
+async def cron_followups(request: Request):
+    require_admin(request); now = datetime.now(timezone.utc); changed = 0
     with conn() as c: rows = c.execute("SELECT * FROM orders WHERE state='DELIVERED'").fetchall()
     for order in rows:
         updated = datetime.fromisoformat(order["updated_at"])
