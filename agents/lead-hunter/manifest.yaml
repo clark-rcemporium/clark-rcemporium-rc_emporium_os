@@ -1,0 +1,61 @@
+id: rc-lead-hunter-5-checker
+name: RC Lead Hunter + 5-Checker Outreach Controller
+status: proposed_not_canonical
+owner: RC Emporium Technologies Inc.
+
+objective: >-
+  Find qualified prospects, verify contacts and outreach basis, send only after
+  required independent AI checks pass, handle replies, and keep CRM/evidence current.
+
+systems:
+  orchestrator: ARCEE_ChatGPT
+  prospecting: AI_Vibe_Prospecting
+  crm: sales-analytics-crm
+  sender: Superhuman_Mail
+  evidence_store: RC_Emporium_OS_GitHub
+
+review_policy:
+  cold_outreach:
+    required_checkers: 5
+    pass_rule: unanimous
+  routine_reply:
+    required_checkers: 3
+    pass_rule: unanimous
+    escalate_to_5_on_medium_or_high_risk: true
+  max_redraft_cycles: 2
+
+checker_ids:
+  - lead_fit
+  - contact_evidence
+  - message_quality
+  - compliance
+  - truth_reputation
+
+hard_stops:
+  - missing_contact_provenance
+  - missing_consent_or_contact_basis
+  - suppression_match
+  - unsubscribe_received
+  - guessed_contact_address
+  - failed_compliance_checker
+  - failed_truth_checker
+  - unresolved_material_conflict
+
+send_evidence_required:
+  - connector_message_id
+  - sent_timestamp
+  - recipient
+  - approved_message_hash
+  - checker_verdicts
+
+initial_campaign:
+  offer: RC Branded TV Loop — Founding Restaurant Package
+  price: 97_CAD_one_time
+  geography: Winnipeg_Manitoba
+  validation_gate: first_paid_restaurant
+
+truth_labels:
+  - VERIFIED
+  - PENDING
+  - BLOCKED
+  - ESTIMATE
